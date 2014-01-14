@@ -1,29 +1,23 @@
-{-# LANGUAGE CPP,
-             ScopedTypeVariables,
-             FlexibleInstances,
-             OverlappingInstances,
-             MultiParamTypeClasses,
-             FunctionalDependencies,
-             FlexibleContexts,
-             UndecidableInstances,
-             TypeFamilies,
-             IncoherentInstances
-  #-}
-
--- Our modified version of PolyTypeable. There was lost information when obtaining the 
--- type representation of values constructed using monad transformers.
-
+{-# LANGUAGE CPP, EmptyDataDecls, ScopedTypeVariables, FlexibleInstances, OverlappingInstances, MultiParamTypeClasses, FunctionalDependencies, FlexibleContexts, UndecidableInstances, TypeFamilies #-}
+{-# LANGUAGE IncoherentInstances #-}
 --
 -- This amazing piece of code does that Data.Typeable.typeOf does,
 -- but also does it for polymorphic functions.
 -- This is Oleg type magic at its best.
-
-module AOP.Internal.PolyTypeable (
-       PolyTypeable (..),
-       Analyze (..),
-       TVar, TCon0, TCon1, TCon2, TCon3, TCon4, TCon5,      
-
+module AOP.Internal.PolyTypeable(
+  PolyTypeable(..),
+  W,
+  Analyze,
+  TVar,
+  TCon0,
+  TCon1,
+  TCon2,
+  TCon3,
+  TCon4,
+  TCon5,
 ) where
+
+
 import Data.Typeable
 import Data.Int
 import Data.Word
@@ -33,15 +27,20 @@ import Data.Word
 
 data TVar a
 data TCon0 c
-data TCon1 (c :: * -> *) a1
-data TCon2 (c :: * -> * -> *) a1 a2
-data TCon3 (c :: * -> * -> * -> *) a1 a2 a3
-data TCon4 (c :: * -> * -> * -> * -> *) a1 a2 a3 a4
-data TCon5 (c :: * -> * -> * -> * -> * -> * ) a1 a2 a3 a4 a5
+data TCon1 c a1
+data TCon2 c a1 a2
+data TCon3 c a1 a2 a3
+data TCon4 c a1 a2 a3 a4
+data TCon5 c a1 a2 a3 a4 a5
 
 class Analyze a b | a -> b
 
-#define BASE(t) instance (r ~ TCon0 t)  => Analyze t r
+analyze :: Analyze a b => a -> b
+analyze = undefined
+
+data W a
+
+#define BASE(t) instance (r ~ TCon0 t)  => Analyze t r; instance (r ~ TCon0 t)  => Analyze (W t) r
 BASE(())
 BASE(Bool)
 BASE(Char)
@@ -59,15 +58,27 @@ BASE(Word16)
 BASE(Word32)
 BASE(Word64)
 
-instance (Analyze a1 ra1, r ~ TCon1 c ra1) => Analyze (c a1)  r
-instance (Analyze a1 ra1, Analyze a2 ra2, r ~ TCon2 c ra1 ra2) => Analyze (c a1 a2)  r
-instance (Analyze a1 ra1, Analyze a2 ra2, Analyze a3 ra3, r ~ TCon3 c ra1 ra2 ra3) => Analyze    (c a1 a2 a3)  r
-instance (Analyze a1 ra1, Analyze a2 ra2, Analyze a3 ra3, Analyze a4 ra4, r ~ TCon4 c ra1 ra2 ra3 ra4) => Analyze    (c a1 a2 a3 a4)  r
-instance (Analyze a1 ra1, Analyze a2 ra2, Analyze a3 ra3, Analyze a4 ra4, Analyze a5 ra5, r ~ TCon5 c ra1 ra2 ra3 ra4 ra5) => Analyze (c a1 a2 a3 a4 a5)  r
-instance (r ~ TVar a) => Analyze a r
+instance (Analyze (W a1) ra1, r ~ TCon1 (c ()) ra1) => Analyze (W (c a1)) r
+instance (Analyze (W a1) ra1, r ~ TCon1 (c ()) ra1) => Analyze    (c a1)  r
 
-analyze :: Analyze a b => a -> b
-analyze = undefined
+instance (Analyze (W a1) ra1, Analyze (W a2) ra2, r ~ TCon2 (c () ()) ra1 ra2) => Analyze (W (c a1 a2)) r
+instance (Analyze (W a1) ra1, Analyze (W a2) ra2, r ~ TCon2 (c () ()) ra1 ra2) => Analyze    (c a1 a2)  r
+
+instance (Analyze (W a1) ra1, Analyze (W a2) ra2, Analyze (W a3) ra3, r ~ TCon3 (c () () ()) ra1 ra2 ra3) => Analyze (W (c a1 a2 a3)) r
+instance (Analyze (W a1) ra1, Analyze (W a2) ra2, Analyze (W a3) ra3, r ~ TCon3 (c () () ()) ra1 ra2 ra3) => Analyze    (c a1 a2 a3)  r
+
+instance (Analyze (W a1) ra1, Analyze (W a2) ra2, Analyze (W a3) ra3, Analyze (W a4) ra4, r ~ TCon4 (c () () () ()) ra1 ra2 ra3 ra4) =>
+         Analyze (W (c a1 a2 a3 a4)) r
+instance (Analyze (W a1) ra1, Analyze (W a2) ra2, Analyze (W a3) ra3, Analyze (W a4) ra4, r ~ TCon4 (c () () () ()) ra1 ra2 ra3 ra4) =>
+         Analyze    (c a1 a2 a3 a4)  r
+
+instance (Analyze (W a1) ra1, Analyze (W a2) ra2, Analyze (W a3) ra3, Analyze (W a4) ra4, Analyze (W a5) ra5, r ~ TCon5 (c () () () () ()) ra1 ra2 ra3 ra4 ra5) =>
+         Analyze (W (c a1 a2 a3 a4 a5)) r
+instance (Analyze (W a1) ra1, Analyze (W a2) ra2, Analyze (W a3) ra3, Analyze (W a4) ra4, Analyze (W a5) ra5, r ~ TCon5 (c () () () () ()) ra1 ra2 ra3 ra4 ra5) =>
+         Analyze    (c a1 a2 a3 a4 a5)  r
+
+instance (r ~ TVar a) => Analyze (W a) r
+
 
 ----------------------------------
 -- Convert an analysed type to a TypeRep.
@@ -88,45 +99,45 @@ class MyTypeable' g0 gout classification | g0 classification -> gout where
 instance (Typeable a) => MyTypeable' g0 g0 (TCon0 a) where
      mytypof' g0 _ = (typeOf (undefined::a), g0)
 
-instance (Typeable1 c, MyTypeable' g0 g1 a1) =>
+instance (Typeable c, MyTypeable' g0 g1 a1) =>
          MyTypeable' g0 g1 (TCon1 c a1) where
-     mytypof' g0 _ = let (c, c_list)     = splitTyConApp $ typeOf1 (undefined :: c ())
+     mytypof' g0 _ = let (c, _)     = splitTyConApp $ typeOf (undefined :: c)
                          (tr1,g1)   = mytypof' g0 (undefined::a1)
-                     in  (mkTyConApp c (c_list ++ [tr1]), g1)
+                     in  (mkTyConApp c [tr1], g1)
 
-instance (Typeable2 c, MyTypeable' g0 g a1, MyTypeable' g g2 a2) =>
+instance (Typeable c, MyTypeable' g0 g a1, MyTypeable' g g2 a2) =>
          MyTypeable' g0 g2 (TCon2 c a1 a2) where
-     mytypof' g0 _ = let (c, c_list)     = splitTyConApp $ typeOf2 (undefined :: c () ())
+     mytypof' g0 _ = let (c, _)     = splitTyConApp $ typeOf (undefined :: c)
                          (tr1,g1)   = mytypof' g0 (undefined::a1)
                          (tr2,g2)   = mytypof' g1 (undefined::a2)
-                     in  (mkTyConApp c (c_list ++ [tr1, tr2]), g2)
+                     in  (mkTyConApp c [tr1, tr2], g2)
 
-instance (Typeable3 c, MyTypeable' g0 g1 a1, MyTypeable' g1 g2 a2, MyTypeable' g2 g3 a3) =>
+instance (Typeable c, MyTypeable' g0 g1 a1, MyTypeable' g1 g2 a2, MyTypeable' g2 g3 a3) =>
          MyTypeable' g0 g3 (TCon3 c a1 a2 a3) where
-     mytypof' g0 _ = let (c, c_list)     = splitTyConApp $ typeOf3 (undefined :: c () () ())
+     mytypof' g0 _ = let (c, _)     = splitTyConApp $ typeOf (undefined :: c)
                          (tr1,g1)   = mytypof' g0 (undefined::a1)
                          (tr2,g2)   = mytypof' g1 (undefined::a2)
                          (tr3,g3)   = mytypof' g2 (undefined::a3)
-                     in  (mkTyConApp c (c_list ++ [tr1, tr2, tr3]), g3)
+                     in  (mkTyConApp c [tr1, tr2, tr3], g3)
 
-instance (Typeable4 c, MyTypeable' g0 g1 a1, MyTypeable' g1 g2 a2, MyTypeable' g2 g3 a3, MyTypeable' g3 g4 a4) =>
+instance (Typeable c, MyTypeable' g0 g1 a1, MyTypeable' g1 g2 a2, MyTypeable' g2 g3 a3, MyTypeable' g3 g4 a4) =>
          MyTypeable' g0 g4 (TCon4 c a1 a2 a3 a4) where
-     mytypof' g0 _ = let (c, c_list)     = splitTyConApp $ typeOf4 (undefined :: c () () () ())
+     mytypof' g0 _ = let (c, _)     = splitTyConApp $ typeOf (undefined :: c)
                          (tr1,g1)   = mytypof' g0 (undefined::a1)
                          (tr2,g2)   = mytypof' g1 (undefined::a2)
                          (tr3,g3)   = mytypof' g2 (undefined::a3)
                          (tr4,g4)   = mytypof' g3 (undefined::a4)
-                     in  (mkTyConApp c (c_list ++ [tr1, tr2, tr3, tr4]), g4)
+                     in  (mkTyConApp c [tr1, tr2, tr3, tr4], g4)
 
-instance (Typeable5 c, MyTypeable' g0 g1 a1, MyTypeable' g1 g2 a2, MyTypeable' g2 g3 a3, MyTypeable' g3 g4 a4, MyTypeable' g4 g5 a5) =>
+instance (Typeable c, MyTypeable' g0 g1 a1, MyTypeable' g1 g2 a2, MyTypeable' g2 g3 a3, MyTypeable' g3 g4 a4, MyTypeable' g4 g5 a5) =>
          MyTypeable' g0 g5 (TCon5 c a1 a2 a3 a4 a5) where
-     mytypof' g0 _ = let (c, c_list) = splitTyConApp $ typeOf5 (undefined :: c () () () () ())
+     mytypof' g0 _ = let (c, _)     = splitTyConApp $ typeOf (undefined :: c)
                          (tr1,g1)   = mytypof' g0 (undefined::a1)
                          (tr2,g2)   = mytypof' g1 (undefined::a2)
                          (tr3,g3)   = mytypof' g2 (undefined::a3)
                          (tr4,g4)   = mytypof' g3 (undefined::a4)
                          (tr5,g5)   = mytypof' g4 (undefined::a5)
-                     in  (mkTyConApp c (c_list ++ [tr1, tr2, tr3, tr4, tr5]), g5)
+                     in  (mkTyConApp c [tr1, tr2, tr3, tr4, tr5], g5)
 
 instance (HIndex a g0 n, MyTypeable'' n g0 gout (TVar a)) =>
          MyTypeable' g0 gout (TVar a) where

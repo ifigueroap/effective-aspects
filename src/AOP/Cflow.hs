@@ -53,19 +53,19 @@ isCallEJP f fTag ejp = let fType = polyTypeOf f in
 -- | then we use StableNames for comparison. If the functions are wrapped,
 -- | we compare the tags
 compareFunEJP :: t -> FunctionTag -> EJP -> Bool
-compareFunEJP f ft (EJP (Jp g t _)) = if t == defaultFunctionTag
+compareFunEJP f ft (EJP (Jp g t _ _)) = if t == defaultFunctionTag
                                 then stableNamesEq f g
                                 else ft == t
 
 -- | Compare types to see if type representation t is less general 
 -- | than the type of the function associated to the join point
 compareTypeEJP :: TypeRep -> EJP -> Bool
-compareTypeEJP t (EJP (Jp f _ _)) = isLessGeneral t (polyTypeOf f)
+compareTypeEJP t (EJP (Jp f _ _ _)) = isLessGeneral t (polyTypeOf f)
 
 
 -- | Aspect that matches every join point and collects them in a join point stack.
 jpStackAspect :: (Typeable1Monad m, MonadJPStack m) => Aspect m a (m b) a b
-jpStackAspect = aspect pcAny collectAdv
+jpStackAspect = undefined -- aspect pcAny collectAdv
 
 -- | Pointcut that matches every join point, and push them to the stack.
 pcAny :: (Typeable1Monad m, MonadJPStack m) => PC m a b

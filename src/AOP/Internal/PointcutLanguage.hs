@@ -15,9 +15,7 @@ module AOP.Internal.PointcutLanguage (
  pcNot, 
 ) where
 
-import GHC.Prim(Constraint)
-import Unsafe.Coerce
-
+import GHC.Prim (Constraint)
 import AOP.Internal.JoinpointModel
 
 {- |
@@ -26,18 +24,18 @@ Using typeclasses, pointcuts are open for new definitions of functions, like the
 We also define pcSeq, that matches a sequence of two join points.
 -}
 
-pcCall :: Typeable1Monad m => (a -> b) -> PC m a b
-pcCall f = PC (pcCallPred f (polyTypeOf f) defaultFunctionTag)
- where pcCallPred f t tag = return $ \ jp -> return (compareFun f tag jp && compareType t jp)
+pcCall :: (Typeable1Monad m, PolyTypeable (a -> b)) => (a -> b) -> PC m a b
+pcCall f = let typRefF = polyTypeOf f in PC (pcCallPred f typRefF defaultFunctionTag)
+ where pcCallPred fun t tag = return $ \ jp -> return (compareFun fun tag jp && compareType t jp)
 
--- what is the matched type? besides fresh type variables?
--- pcTag must be combined with RequirePC ...       
-pcTag :: Typeable1Monad m => FunctionTag -> PC m a' b'
-pcTag t = PC (pcTagPred t)
- where pcTagPred t = return $ \ (Jp _ tag _) -> return (tag == t)
+-- -- what is the matched type? besides fresh type variables?
+-- -- pcTag must be combined with RequirePC ...       
+-- pcTag :: Typeable1Monad m => FunctionTag -> PC m a' b'
+-- pcTag t = PC (pcTagPred t)
+--  where pcTagPred t = return $ \ (Jp _ tag _) -> return (tag == t)
 
-pcType :: Typeable1Monad m => (a -> b) -> PC m a b
-pcType f = PC (pcTypePred (polyTypeOf f))
+pcType :: (Typeable1Monad m, PolyTypeable (a -> b)) => (a -> b) -> PC m a b
+pcType f = let typRefF = polyTypeOf f in PC (pcTypePred typRefF)
  where pcTypePred t = (return (\jp -> return (compareType t jp)))
 
 -- | And pointcut combinator, overloaded to support PC and RequirePC

@@ -11,7 +11,7 @@ import AOP.Internal.JoinpointModel
 import AOP.Internal.OpenApp
 
 -- A monad that does top-level deploy/undeploy
-class (Typeable1Monad m, OpenApp (->) m) => AOPMonad m where
+class (Typeable1Monad m, OpenApp m) => AOPMonad m where
       deploy   :: LessGen (a -> b) (c -> m d) => Aspect m a b c d -> m ()
       undeploy :: LessGen (a -> b) (c -> m d) => Aspect m a b c d -> m ()
 

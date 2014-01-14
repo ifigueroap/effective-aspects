@@ -2,7 +2,8 @@
              ExistentialQuantification,
              ScopedTypeVariables,
              RankNTypes,
-             TypeSynonymInstances
+             TypeSynonymInstances,
+             DeriveDataTypeable
  #-}
 
 module AOP.Internal.JoinpointModel (
@@ -51,53 +52,51 @@ type FunctionTag = Integer
 
 defaultFunctionTag = 343123
 
--- | Join points are function applications. We store the function and the argument.
--- | We add a FunctionTag value to use for function equality.
-data Jp m a b = (Monad m, PolyTypeable (a -> m b)) => Jp (a -> m b) FunctionTag a
+-- | Join points are function applications. We store the function and the argument, and the function type representation.
+-- | We add a FunctionTag value to use for quantification.
+data Jp m a b = (Typeable1Monad m, PolyTypeable (a -> m b)) => Jp (a -> m b) FunctionTag a TypeRep
 
 -- | Creates a join point with given function, tag, and argument
-newjp :: (Monad m, PolyTypeable (a -> m b)) => (a -> m b) -> FunctionTag -> a -> Jp m a b
-newjp = Jp
+newjp :: (Typeable1Monad m, PolyTypeable (a -> m b)) => (a -> m b) -> FunctionTag -> a -> Jp m a b
+newjp f t a = Jp f t a (polyTypeOf f)
 
 -- | Comparing identity of functions:
--- | When given a join point with a regular function (signaled by the default tag)
--- | then we use StableNames for comparison. If the functions are wrapped,
--- | we compare the tags
-compareFun :: Monad m => t -> FunctionTag -> Jp m a b -> Bool
-compareFun f ft (Jp g t _) = if t == defaultFunctionTag
-                                then stableNamesEq f g
-                                else ft == t
+compareFun :: (Typeable1Monad m, PolyTypeable (a -> m b)) => t -> FunctionTag -> Jp m a b -> Bool
+compareFun f ft (Jp g t _ _) = if t == defaultFunctionTag then stableNamesEq f g else ft == t
 
 -- | Compare types to see if type representation t is less general 
 -- | than the type of the function associated to the join point
-compareType :: (Monad m, PolyTypeable (a -> m b)) => TypeRep -> Jp m a b -> Bool
-compareType t (Jp f _ _) = isLessGeneral t (polyTypeOf f)
+compareType :: (Typeable1Monad m, PolyTypeable (a -> m b)) => TypeRep -> Jp m a b -> Bool
+compareType  t (Jp _ _ _ ft) = isLessGeneral ft t
 
 -- | Gets the argument bound to the join point
 getJpArg :: Monad m => Jp m a b -> a
-getJpArg (Jp _ _ x) = x
+getJpArg (Jp _ _ x _) = x
 
 -- POINTCUTS
 
 -- | A pointcut is a predicate on the current join point. It is used to identify join points of interest.
-data PC m a b = Typeable1Monad m => PC {mpcond :: forall a' b'. m (Jp m a' b' -> m Bool)} 
+data PC m a b = PC {mpcond :: forall a' b'. m (Jp m a' b' -> m Bool)}
 
 -- | Extracts the computation resulting of applying a join point to the pointcut
-runPC :: Typeable1Monad m => PC m a b -> Jp m a' b' -> m Bool
-runPC (PC mpcond) jp = do pccond <- mpcond
-                          pccond jp
+runPC (PC mpcond) jp = do { pccond <- mpcond; pccond jp}
 
 -- | A RequirePC is not a valid standalone pointcut, it reflects a type requirement and must be combined with a standard PC.
 data RequirePC m a b = Typeable1Monad m => RequirePC {mpcond' ::  forall a' b'. m (Jp m a' b' -> m Bool)}
 
 -- | Support for PolyTypeable
+
+instance (Typeable1 m) => Typeable2 (Jp m) where
+  typeOf2 _ = mkTyConApp (mkTyCon3 "EffectiveAspects" "AOP.Internal.JoinpointModel" "Jp")
+              [typeOf1 (undefined :: m ())]
+
 instance (Typeable1 m) => Typeable2 (PC m) where
-         typeOf2 _ = mkTyConApp (mkTyCon3 "PC" "PC" "PC") 
-                     [typeOf1 (undefined :: m ())]
+  typeOf2 _ = mkTyConApp (mkTyCon3 "PC" "PC" "PC") 
+              [typeOf1 (undefined :: m ())]
 
 instance (Typeable1 m) => Typeable2 (RequirePC m) where
-         typeOf2 _ = mkTyConApp (mkTyCon3 "RequirePC" "RequirePC" "RequirePC") 
-                     [typeOf1 (undefined :: m ())]
+  typeOf2 _ = mkTyConApp (mkTyCon3 "RequirePC" "RequirePC" "RequirePC") 
+              [typeOf1 (undefined :: m ())]
 
 -- ADVICE
 
@@ -120,8 +119,7 @@ newAspectHandle :: AspectHandle
 newAspectHandle = unsafePerformIO newUnique
 
 -- | Constructs a well-typed aspect
-aspect :: (Monad m, LessGen (a1 -> b1) (a2 -> m b2)) => 
-          PC m a1 b1 -> Advice m a2 b2 -> Aspect m a1 b1 a2 b2
+aspect :: (Typeable1Monad m, LessGen (a1 -> b1) (a2 -> m b2)) => PC m a1 b1 -> Advice m a2 b2 -> Aspect m a1 b1 a2 b2
 aspect pc adv = Aspect pc adv newAspectHandle
 
 -- | Aspect with hidden types, to be used in the aspect environment
