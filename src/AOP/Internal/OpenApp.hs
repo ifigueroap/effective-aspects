@@ -6,7 +6,7 @@
 
 module AOP.Internal.OpenApp (
  OpenApp   (..),
- -- TaggedApp (..),
+ TaggedApp (..),
 ) where
 
 import AOP.Internal.Typeable1Monad
@@ -15,5 +15,5 @@ import AOP.Internal.JoinpointModel (FunctionTag)
 class Typeable1Monad m => OpenApp m where
   (#) :: (PolyTypeable (a -> m b)) => (a -> m b) -> a -> m b
 
--- class Typeable1Monad m => TaggedApp (f :: * -> * -> *) m where
---   taggedApp :: (PolyTypeable (f a (m b))) => FunctionTag -> f a (m b) -> a -> m b
+class Typeable1Monad m => TaggedApp m where
+  taggedApp :: (PolyTypeable (a -> m b)) => FunctionTag -> (a -> m b) -> a -> m b

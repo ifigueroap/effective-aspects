@@ -49,47 +49,48 @@ wappt t f a = mkAOT $ \ aenv -> do
 
 -- | Every regular functions is tagged with the same default tag.
 instance Typeable1Monad m => OpenApp (AOT m) where
-         f # a = wappt defaultFunctionTag f a
+  f # a = wappt defaultFunctionTag f a
+
+instance Typeable1Monad m => TaggedApp (AOT m) where
+  taggedApp t f a = wappt t f a
 
 -- | Typeable instance so types of computations in AOT can be compared (like in pcCall and pcType)
 instance Typeable1Monad m => Typeable1 (AOT m) where
-         typeOf1 _ = mkTyConApp (mkTyCon3 "EffectiveAspects" "AOP.Internal.AOT" "AOT") [typeOf1 (undefined :: m ())]
+  typeOf1 _ = mkTyConApp (mkTyCon3 "EffectiveAspects" "AOP.Internal.AOT" "AOT") [typeOf1 (undefined :: m ())]
 
 -- | The semantics of aspect deployment are defined in the
 -- MonadDeploy typeclass. AOT assumes it is on top of an MonadDeploy
 -- instance, and uses that functions for aspect deployment.
 instance (Typeable1Monad m, MonadDeploy AOT m) => AOPMonad (AOT m) where
-      deploy asp   = mkAOT $ \aenv ->
-                         do aenv' <- deployInEnv asp aenv
-                            return ((), aenv')
-      undeploy asp = mkAOT $ \aenv ->
-                         do aenv' <- undeployInEnv asp aenv
-                            return ((), deleteAsp (EAspect asp) aenv')
+  deploy asp   = mkAOT $ \aenv ->
+    do aenv' <- deployInEnv asp aenv
+       return ((), aenv')
+  undeploy asp = mkAOT $ \aenv ->
+    do aenv' <- undeployInEnv asp aenv
+       return ((), deleteAsp (EAspect asp) aenv')
 
 instance MonadTrans AOT where
-         lift ma = mkAOT $ \aenv -> do
-                       a <- ma
-                       return (a, aenv)
+  lift ma = mkAOT $ \aenv -> do { a <- ma; return (a, aenv)}
 
 instance MonadState s m => MonadState s (AOT m) where
-         get = lift get
-         put = lift . put
+  get = lift get
+  put = lift . put
 
 instance (Typeable1Monad m, MonadError s m) => MonadError s (AOT m) where
-         throwError = lift . throwError
-         ma `catchError` h = mkAOT $ \aenv ->
-            run ma aenv `catchError` \e -> run (h e) aenv
+  throwError = lift . throwError
+  ma `catchError` h = mkAOT $ \aenv ->
+    run ma aenv `catchError` \e -> run (h e) aenv
 
 instance (Typeable1Monad m, MonadWriter w m) => MonadWriter w (AOT m) where
-    tell     = lift . tell
-    listen m = mkAOT $ \aenv -> do
-               ((a, aenv'), w) <- listen (run m aenv)
-               return ((a, w), aenv')
-    pass m = mkAOT $ \aenv -> pass $ do
-             ((a, f), aenv') <- run m aenv
-             return ((a, aenv'), f)
+  tell     = lift . tell
+  listen m = mkAOT $ \aenv -> do
+    ((a, aenv'), w) <- listen (run m aenv)
+    return ((a, w), aenv')
+  pass m = mkAOT $ \aenv -> pass $ do
+    ((a, f), aenv') <- run m aenv
+    return ((a, aenv'), f)
 
 instance (Typeable1Monad m, MonadReader r m) => MonadReader r (AOT m) where
-    ask       = lift ask
-    local f m = mkAOT $ \s -> local f (run m s)
+  ask       = lift ask
+  local f m = mkAOT $ \s -> local f (run m s)
 

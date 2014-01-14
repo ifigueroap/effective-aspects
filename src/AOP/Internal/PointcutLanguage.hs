@@ -10,13 +10,15 @@ module AOP.Internal.PointcutLanguage (
  pcCall,
  pcType,
  pcAnd,
- -- pcTag,
+ pcTag,
  pcOr,
  pcNot, 
 ) where
 
 import GHC.Prim (Constraint)
 import AOP.Internal.JoinpointModel
+
+import Debug.Trace
 
 {- |
 Built-in pointcuts pcCall and pcType, and pointcut combinators pcAnd, pcOr and pcNot.
@@ -28,11 +30,9 @@ pcCall :: (Typeable1Monad m, PolyTypeable (a -> b)) => (a -> b) -> PC m a b
 pcCall f = let typRefF = polyTypeOf f in PC (pcCallPred f typRefF defaultFunctionTag)
  where pcCallPred fun t tag = return $ \ jp -> return (compareFun fun tag jp && compareType t jp)
 
--- -- what is the matched type? besides fresh type variables?
--- -- pcTag must be combined with RequirePC ...       
--- pcTag :: Typeable1Monad m => FunctionTag -> PC m a' b'
--- pcTag t = PC (pcTagPred t)
---  where pcTagPred t = return $ \ (Jp _ tag _) -> return (tag == t)
+pcTag :: (Typeable1Monad m, PolyTypeable (a -> b)) => FunctionTag -> PC m a' b'
+pcTag t = PC (pcTagPred t)
+ where pcTagPred t = return $ \ (Jp _ tag _ _) -> return (tag == t)
 
 pcType :: (Typeable1Monad m, PolyTypeable (a -> b)) => (a -> b) -> PC m a b
 pcType f = let typRefF = polyTypeOf f in PC (pcTypePred typRefF)
