@@ -5,19 +5,12 @@
 -- but also does it for polymorphic functions.
 -- This is Oleg type magic at its best.
 module AOP.Internal.PolyTypeable(
-  PolyTypeable(..),
-  W,
-  Analyze,
-  TVar,
-  TCon0,
-  TCon1,
-  TCon2,
-  TCon3,
-  TCon4,
-  TCon5,
+   PolyTypeable(..)
+ , Analyze (..)
+ , W (..)
+ , TCon0, TCon1, TCon2, TCon3, TCon4, TCon5, TVar
+
 ) where
-
-
 import Data.Typeable
 import Data.Int
 import Data.Word
@@ -65,7 +58,7 @@ instance (Analyze (W a1) ra1, Analyze (W a2) ra2, r ~ TCon2 (c () ()) ra1 ra2) =
 instance (Analyze (W a1) ra1, Analyze (W a2) ra2, r ~ TCon2 (c () ()) ra1 ra2) => Analyze    (c a1 a2)  r
 
 instance (Analyze (W a1) ra1, Analyze (W a2) ra2, Analyze (W a3) ra3, r ~ TCon3 (c () () ()) ra1 ra2 ra3) => Analyze (W (c a1 a2 a3)) r
-instance (Analyze (W a1) ra1, Analyze (W a2) ra2, Analyze (W a3) ra3, r ~ TCon3 (c () () ()) ra1 ra2 ra3) => Analyze    (c a1 a2 a3)  r
+instance (Analyze (W a1) ra1, Analyze (W a2) ra2, Analyze (W a3) ra3, r ~ TCon3 (c () () ())ra1 ra2 ra3) => Analyze    (c a1 a2 a3)  r
 
 instance (Analyze (W a1) ra1, Analyze (W a2) ra2, Analyze (W a3) ra3, Analyze (W a4) ra4, r ~ TCon4 (c () () () ()) ra1 ra2 ra3 ra4) =>
          Analyze (W (c a1 a2 a3 a4)) r
@@ -78,7 +71,6 @@ instance (Analyze (W a1) ra1, Analyze (W a2) ra2, Analyze (W a3) ra3, Analyze (W
          Analyze    (c a1 a2 a3 a4 a5)  r
 
 instance (r ~ TVar a) => Analyze (W a) r
-
 
 ----------------------------------
 -- Convert an analysed type to a TypeRep.
