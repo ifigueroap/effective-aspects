@@ -11,6 +11,8 @@ module AOP.Internal.AOT (
  mkAOT,
  runAOT,
  wappt,
+ run,
+ mapAOT
 ) where
 
 import AOP.Internal.JoinpointModel
@@ -30,6 +32,10 @@ mkAOT = AOT . StateT
 -- | Runs an AOT computation to obtain a computation in the underlying monad
 runAOT :: Typeable1Monad m => AOT m a -> m a
 runAOT c = liftM fst $ run c []
+
+-- | Like mapStateT, but specialized to work on the same monad.
+mapAOT :: (m (a, AspectEnv (AOT m)) -> m (b, AspectEnv (AOT m))) -> AOT m a -> AOT m b
+mapAOT f m = mkAOT $ f . run m
 
 -- | Monadic weaver
 weavet :: (Typeable1Monad m, PolyTypeable (a -> AOT m b)) =>
